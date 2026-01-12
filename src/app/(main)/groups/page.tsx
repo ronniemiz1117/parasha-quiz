@@ -77,13 +77,21 @@ export default async function GroupsPage() {
                   </div>
                 </div>
 
-                <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
+                <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex gap-4">
                   <Link
                     href={`/leaderboard?group=${group?.id}`}
                     className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                   >
-                    View Leaderboard →
+                    Leaderboard
                   </Link>
+                  {(membership.role === 'admin' || membership.role === 'teacher') && (
+                    <Link
+                      href={`/admin/groups/${group?.id}`}
+                      className="text-purple-600 hover:text-purple-700 text-sm font-medium"
+                    >
+                      Manage Group
+                    </Link>
+                  )}
                 </div>
               </div>
             )

@@ -7,9 +7,10 @@ import type { Profile } from '@/types/database'
 
 interface NavbarProps {
   profile: Profile | null
+  isAdmin?: boolean
 }
 
-export function Navbar({ profile }: NavbarProps) {
+export function Navbar({ profile, isAdmin = false }: NavbarProps) {
   const router = useRouter()
 
   const handleLogout = async () => {
@@ -54,6 +55,14 @@ export function Navbar({ profile }: NavbarProps) {
                 >
                   Groups
                 </Link>
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="text-purple-600 hover:text-purple-900 px-3 py-2 rounded-md text-sm font-medium"
+                  >
+                    Admin
+                  </Link>
+                )}
               </div>
             )}
           </div>

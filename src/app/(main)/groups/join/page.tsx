@@ -1,13 +1,22 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 export default function JoinGroupPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [inviteCode, setInviteCode] = useState('')
+
+  // Pre-fill invite code from URL if present
+  useEffect(() => {
+    const codeFromUrl = searchParams.get('code')
+    if (codeFromUrl) {
+      setInviteCode(codeFromUrl.toUpperCase())
+    }
+  }, [searchParams])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
