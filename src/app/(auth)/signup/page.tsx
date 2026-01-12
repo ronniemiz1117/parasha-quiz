@@ -187,13 +187,18 @@ export default function SignupPage() {
 
       // Generate an invite code for the new group
       const inviteCodeGenerated = generateInviteCode()
-      await supabase
+      const { error: inviteError } = await supabase
         .from('group_invitations')
         .insert({
           group_id: groupData.id,
           invite_code: inviteCodeGenerated,
           created_by: authData.user.id,
         })
+
+      if (inviteError) {
+        console.error('Invite creation error:', inviteError)
+        // Don't block signup - invite can be created later from admin panel
+      }
     }
 
     router.push('/dashboard')
