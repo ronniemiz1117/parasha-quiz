@@ -20,11 +20,6 @@ export default function SignupPage() {
   // Student-specific
   const [inviteCode, setInviteCode] = useState('')
 
-  // Admin-specific
-  const [groupName, setGroupName] = useState('')
-  const [groupType, setGroupType] = useState<string>('synagogue')
-  const [institution, setInstitution] = useState('')
-
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -76,13 +71,6 @@ export default function SignupPage() {
       }
 
       invitation = inviteData
-    }
-
-    // For admins, validate group name
-    if (signupType === 'admin' && !groupName.trim()) {
-      setError('Please enter a group name')
-      setLoading(false)
-      return
     }
 
     // Sign up the user
@@ -149,70 +137,15 @@ export default function SignupPage() {
         .from('group_invitations')
         .update({ times_used: invitation.times_used + 1 })
         .eq('id', invitation.id)
-
-    } else if (signupType === 'admin') {
-      // Create the new group
-      const { data: groupData, error: groupError } = await supabase
-        .from('groups')
-        .insert({
-          name: groupName,
-          group_type: groupType,
-          institution: institution || null,
-        })
-        .select('id')
-        .single()
-
-      if (groupError) {
-        console.error('Group creation error:', groupError)
-        setError('Account created but there was an error creating your group')
-        setLoading(false)
-        return
-      }
-
-      // Add user as admin of the group
-      await supabase
-        .from('group_memberships')
-        .insert({
-          user_id: authData.user.id,
-          group_id: groupData.id,
-          role: 'admin',
-        })
-
-      // Create initial group stats
-      await supabase
-        .from('group_stats')
-        .insert({
-          group_id: groupData.id,
-        })
-
-      // Generate an invite code for the new group
-      const inviteCodeGenerated = generateInviteCode()
-      const { error: inviteError } = await supabase
-        .from('group_invitations')
-        .insert({
-          group_id: groupData.id,
-          invite_code: inviteCodeGenerated,
-          created_by: authData.user.id,
-        })
-
-      if (inviteError) {
-        console.error('Invite creation error:', inviteError)
-        // Don't block signup - invite can be created later from admin panel
-      }
     }
 
-    router.push('/dashboard')
+    // For admins, just redirect - they'll create groups from the admin panel
+    if (signupType === 'admin') {
+      router.push('/admin')
+    } else {
+      router.push('/dashboard')
+    }
     router.refresh()
-  }
-
-  // Generate a random invite code
-  const generateInviteCode = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // Avoid confusing characters
-    let code = ''
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length))
-    }
-    return code
   }
 
   // Step 1: Choose signup type
@@ -247,7 +180,7 @@ export default function SignupPage() {
             >
               <div className="text-left">
                 <h3 className="text-lg font-semibold text-gray-900">I'm an Admin/Teacher</h3>
-                <p className="text-sm text-gray-500">I want to create a new group</p>
+                <p className="text-sm text-gray-500">I want to create and manage groups</p>
               </div>
               <div className="text-4xl">👨‍🏫</div>
             </button>
@@ -276,12 +209,12 @@ export default function SignupPage() {
             ← Back
           </button>
           <h2 className="mt-4 text-center text-3xl font-extrabold text-gray-900">
-            {signupType === 'student' ? 'Student Sign Up' : 'Admin Sign Up'}
+            {signupType === 'student' ? 'Student Sign Up' : 'Admin/Teacher Sign Up'}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             {signupType === 'student'
               ? 'Join your group with an invite code'
-              : 'Create a new group for your synagogue, school, or class'}
+              : 'Create your account, then set up groups from the admin panel'}
           </p>
         </div>
 
@@ -311,59 +244,7 @@ export default function SignupPage() {
               </div>
             )}
 
-            {/* Group details for admins */}
-            {signupType === 'admin' && (
-              <>
-                <div>
-                  <label htmlFor="groupName" className="block text-sm font-medium text-gray-700">
-                    Group Name *
-                  </label>
-                  <input
-                    id="groupName"
-                    type="text"
-                    required
-                    value={groupName}
-                    onChange={(e) => setGroupName(e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="e.g., Beth Israel Youth Group"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="groupType" className="block text-sm font-medium text-gray-700">
-                    Group Type *
-                  </label>
-                  <select
-                    id="groupType"
-                    value={groupType}
-                    onChange={(e) => setGroupType(e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="synagogue">Synagogue</option>
-                    <option value="school">School</option>
-                    <option value="class">Class</option>
-                    <option value="minyan">Minyan</option>
-                    <option value="custom">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="institution" className="block text-sm font-medium text-gray-700">
-                    Institution Name
-                  </label>
-                  <input
-                    id="institution"
-                    type="text"
-                    value={institution}
-                    onChange={(e) => setInstitution(e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="e.g., Congregation Beth Israel (optional)"
-                  />
-                </div>
-              </>
-            )}
-
-            <hr className="my-4" />
+            {signupType === 'student' && <hr className="my-4" />}
 
             <div>
               <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">

@@ -48,6 +48,9 @@ CREATE POLICY "Group admins can delete memberships" ON group_memberships
 -- FIX 2: GROUP INVITATIONS - Allow creators to insert their own invitations
 -- ============================================================================
 
+-- Drop the old policy that causes recursion (it checks group_memberships which triggers recursion)
+DROP POLICY IF EXISTS "Group admins can create invitations" ON group_invitations;
+
 -- This policy allows admin signup flow to work (create invitation right after creating group)
 DROP POLICY IF EXISTS "Users can create invitations they own" ON group_invitations;
 CREATE POLICY "Users can create invitations they own" ON group_invitations
