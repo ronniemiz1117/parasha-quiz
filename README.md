@@ -1,36 +1,141 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# חידון פרשת השבוע - Parasha Quiz App
+
+A competitive quiz platform for Jewish youth to test their knowledge of weekly Torah portions (Parshiyot).
+
+## Tech Stack
+
+- **Frontend**: Next.js 15, React, TypeScript, Tailwind CSS
+- **Backend**: Supabase (PostgreSQL + Auth)
+- **Hosting**: Vercel (recommended)
 
 ## Getting Started
 
-First, run the development server:
+### 1. Set up Supabase
+
+1. Create a new project at [supabase.com](https://supabase.com)
+2. Go to SQL Editor and run the contents of `schema.sql`
+3. Get your project URL and anon key from Settings → API
+
+### 2. Configure Environment
+
+Copy `.env.local` and fill in your Supabase credentials:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Install & Run
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open [http://localhost:3000](http://localhost:3000)
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/
+│   ├── (auth)/           # Login, signup pages
+│   │   ├── login/
+│   │   └── signup/
+│   ├── (main)/           # Authenticated pages
+│   │   ├── dashboard/
+│   │   ├── quizzes/
+│   │   ├── quiz/[id]/
+│   │   ├── groups/
+│   │   ├── leaderboard/
+│   │   └── profile/
+│   ├── layout.tsx
+│   └── page.tsx          # Landing page
+├── components/
+│   ├── quiz/
+│   │   └── quiz-player.tsx
+│   └── ui/
+│       └── navbar.tsx
+├── lib/
+│   └── supabase/
+│       ├── client.ts     # Browser client
+│       ├── server.ts     # Server client
+│       └── middleware.ts # Auth middleware
+└── types/
+    └── database.ts       # TypeScript types
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Features
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### For Students
+- Weekly Hebrew Torah quizzes
+- Multiple attempts with time tracking
+- Progress tracking and stats
+- Group leaderboards
+- Join groups via invite codes
 
-## Deploy on Vercel
+### For Teachers/Admins
+- Create groups with invite codes
+- Manage quizzes per parasha
+- View student progress
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Database Schema
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See `schema.sql` for the full schema. Key tables:
+
+| Table | Purpose |
+|-------|---------|
+| `parshiyot` | 54 weekly Torah portions |
+| `aliyot` | 7 readings per parasha |
+| `quizzes` | Quiz definitions |
+| `questions` | Quiz questions linked to aliyot |
+| `answer_choices` | Multiple choice answers |
+| `quiz_attempts` | User quiz sessions |
+| `profiles` | User profiles (extends Supabase auth) |
+| `groups` | Synagogues, schools, classes |
+| `group_memberships` | User-group relationships |
+| `group_invitations` | Invite codes for groups |
+
+## Row Level Security (RLS)
+
+After running the schema, set up RLS policies in Supabase:
+
+```sql
+-- Allow users to read their own profile
+CREATE POLICY "Users can read own profile" ON profiles
+  FOR SELECT USING (auth.uid() = id);
+
+-- Allow users to update their own profile
+CREATE POLICY "Users can update own profile" ON profiles
+  FOR UPDATE USING (auth.uid() = id);
+
+-- Allow users to read published quizzes
+CREATE POLICY "Anyone can read published quizzes" ON quizzes
+  FOR SELECT USING (is_published = true);
+
+-- Allow users to create their own quiz attempts
+CREATE POLICY "Users can create own attempts" ON quiz_attempts
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- See rls_policies.sql for complete policies
+```
+
+## Deployment
+
+### Vercel (Recommended)
+
+1. Push to GitHub
+2. Import project in Vercel
+3. Add environment variables
+4. Deploy
+
+## Development Notes
+
+- All UI is in Hebrew (RTL)
+- Uses Rubik font for Hebrew support
+- Supabase handles authentication
+- Quiz timing enforced client-side with server validation
+
+## License
+
+MIT
