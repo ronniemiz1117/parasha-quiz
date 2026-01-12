@@ -59,6 +59,10 @@ CREATE POLICY "Users can see group members profiles" ON profiles
 CREATE POLICY "Anyone can view groups" ON groups
     FOR SELECT USING (is_active = true);
 
+-- Authenticated users can create groups (for admin signup)
+CREATE POLICY "Authenticated users can create groups" ON groups
+    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
 -- Group admins can update their groups
 CREATE POLICY "Group admins can update groups" ON groups
     FOR UPDATE USING (
@@ -297,6 +301,10 @@ CREATE POLICY "Users can update own stats" ON user_stats
 
 CREATE POLICY "Anyone can view group stats" ON group_stats
     FOR SELECT USING (true);
+
+-- Authenticated users can create group stats (for admin signup)
+CREATE POLICY "Authenticated users can create group stats" ON group_stats
+    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Group admins can update their group stats
 CREATE POLICY "Group admins can update group stats" ON group_stats
