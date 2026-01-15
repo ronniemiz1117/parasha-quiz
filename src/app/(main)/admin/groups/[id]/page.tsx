@@ -46,6 +46,11 @@ export default function AdminGroupPage({ params }: GroupPageProps) {
   const [editDescription, setEditDescription] = useState('')
   const [saving, setSaving] = useState(false)
 
+  // Delete state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
   useEffect(() => {
     const loadGroup = async () => {
       const supabase = createClient()
@@ -144,6 +149,52 @@ export default function AdminGroupPage({ params }: GroupPageProps) {
     }
 
     setSaving(false)
+  }
+
+  const handleDeleteGroup = async () => {
+    if (!group) return
+    setDeleting(true)
+    setDeleteError(null)
+
+    const supabase = createClient()
+
+    console.log('Attempting to delete group:', group.id)
+
+    // Delete the group - cascading deletes should handle memberships, invites, etc.
+    const { error, count } = await supabase
+      .from('groups')
+      .delete()
+      .eq('id', group.id)
+      .select()
+
+    console.log('Delete result:', { error, count })
+
+    if (error) {
+      console.error('Error deleting group:', error)
+      setDeleteError(`Failed to delete group: ${error.message}`)
+      setDeleting(false)
+      return
+    }
+
+    // Verify deletion worked by checking if group still exists
+    const { data: checkGroup, error: checkError } = await supabase
+      .from('groups')
+      .select('id')
+      .eq('id', group.id)
+      .maybeSingle()
+
+    console.log('Verification check:', { checkGroup, checkError })
+
+    if (checkGroup) {
+      console.error('Group still exists after delete - likely RLS policy blocking')
+      setDeleteError('Delete failed - you may not have permission to delete this group. Run the RLS policy SQL to allow group deletion.')
+      setDeleting(false)
+      return
+    }
+
+    console.log('Group deleted successfully, redirecting...')
+    // Redirect to admin dashboard
+    router.push('/admin')
   }
 
   const copyToClipboard = async (code: string) => {
@@ -346,6 +397,61 @@ export default function AdminGroupPage({ params }: GroupPageProps) {
           </div>
         )}
       </div>
+
+      {/* Danger Zone - Delete Group (Admin only) */}
+      {isAdmin && (
+        <div className="bg-white rounded-lg shadow p-6 border border-red-200">
+          <h2 className="text-lg font-semibold text-red-600 mb-2">Danger Zone</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Deleting this group will remove all members, invitations, and associated data. This action cannot be undone.
+          </p>
+
+          {deleteError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+              {deleteError}
+            </div>
+          )}
+
+          {!showDeleteConfirm ? (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700"
+            >
+              Delete Group
+            </button>
+          ) : (
+            <div className="bg-red-50 border border-red-300 rounded-lg p-4">
+              <p className="text-sm text-red-800 font-medium mb-3">
+                Are you sure you want to delete &quot;{group.name}&quot;? This will permanently remove:
+              </p>
+              <ul className="text-sm text-red-700 list-disc list-inside mb-4">
+                <li>{memberCount} member(s)</li>
+                <li>{invitations.length} invitation code(s)</li>
+                <li>All quiz assignments for this group</li>
+              </ul>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleDeleteGroup}
+                  disabled={deleting}
+                  className="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deleting ? 'Deleting...' : 'Yes, Delete Group'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false)
+                    setDeleteError(null)
+                  }}
+                  disabled={deleting}
+                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-300 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

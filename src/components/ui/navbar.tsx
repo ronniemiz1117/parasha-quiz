@@ -3,10 +3,14 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { Profile } from '@/types/database'
+interface NavbarProfile {
+  id: string
+  display_name?: string | null
+  email?: string | null
+}
 
 interface NavbarProps {
-  profile: Profile | null
+  profile: NavbarProfile | null
   isAdmin?: boolean
 }
 
@@ -25,43 +29,60 @@ export function Navbar({ profile, isAdmin = false }: NavbarProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <Link href="/dashboard" className="text-xl font-bold text-blue-600">
+            <Link href={isAdmin ? '/admin' : '/dashboard'} className="text-xl font-bold text-blue-600">
               Parasha Quiz
             </Link>
 
             {profile && (
               <div className="hidden sm:flex sm:gap-4 sm:ml-8">
-                <Link
-                  href="/dashboard"
-                  className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  href="/quizzes"
-                  className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  Quizzes
-                </Link>
-                <Link
-                  href="/leaderboard"
-                  className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  Leaderboard
-                </Link>
-                <Link
-                  href="/groups"
-                  className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  Groups
-                </Link>
-                {isAdmin && (
-                  <Link
-                    href="/admin"
-                    className="text-purple-600 hover:text-purple-900 px-3 py-2 rounded-md text-sm font-medium"
-                  >
-                    Admin
-                  </Link>
+                {isAdmin ? (
+                  <>
+                    <Link
+                      href="/admin"
+                      className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                    >
+                      Dashboard
+                    </Link>
+                    <Link
+                      href="/admin/quizzes"
+                      className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                    >
+                      Quizzes
+                    </Link>
+                    <Link
+                      href="/leaderboard"
+                      className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                    >
+                      Leaderboard
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/dashboard"
+                      className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                    >
+                      Dashboard
+                    </Link>
+                    <Link
+                      href="/quizzes"
+                      className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                    >
+                      Quizzes
+                    </Link>
+                    <Link
+                      href="/leaderboard"
+                      className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                    >
+                      Leaderboard
+                    </Link>
+                    <Link
+                      href="/groups"
+                      className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                    >
+                      Groups
+                    </Link>
+                  </>
                 )}
               </div>
             )}
@@ -74,7 +95,7 @@ export function Navbar({ profile, isAdmin = false }: NavbarProps) {
                   href="/profile"
                   className="text-gray-600 hover:text-gray-900 text-sm font-medium"
                 >
-                  {profile.display_name}
+                  {profile.display_name || profile.email?.split('@')[0] || 'Profile'}
                 </Link>
                 <button
                   onClick={handleLogout}

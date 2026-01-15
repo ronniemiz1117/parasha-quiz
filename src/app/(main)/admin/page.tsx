@@ -104,12 +104,17 @@ export default function AdminPage() {
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!userId || !groupName.trim()) return
+    if (!userId || !groupName.trim()) {
+      console.error('Missing userId or groupName:', { userId, groupName })
+      return
+    }
 
     setCreating(true)
     setError(null)
 
     const supabase = createClient()
+
+    console.log('Creating group with:', { name: groupName, group_type: groupType, institution })
 
     // Create the group
     const { data: groupData, error: groupError } = await supabase
@@ -124,10 +129,12 @@ export default function AdminPage() {
 
     if (groupError) {
       console.error('Group creation error:', groupError)
-      setError('Error creating group. Please try again.')
+      setError(`Error creating group: ${groupError.message} (${groupError.code})`)
       setCreating(false)
       return
     }
+
+    console.log('Group created with ID:', groupData.id)
 
     // Add user as admin
     const { error: membershipError } = await supabase
@@ -140,21 +147,30 @@ export default function AdminPage() {
 
     if (membershipError) {
       console.error('Membership error:', membershipError)
-      setError('Group created but error adding you as admin.')
+      setError(`Error adding you as admin: ${membershipError.message} (${membershipError.code})`)
       setCreating(false)
       return
     }
 
+    console.log('User added as admin')
+
     // Create group stats
-    await supabase
+    const { error: statsError } = await supabase
       .from('group_stats')
       .insert({
         group_id: groupData.id,
       })
 
+    if (statsError) {
+      console.error('Group stats error:', statsError)
+      // Non-fatal, continue
+    } else {
+      console.log('Group stats created')
+    }
+
     // Create initial invite code
     const inviteCode = generateInviteCode()
-    await supabase
+    const { error: inviteError } = await supabase
       .from('group_invitations')
       .insert({
         group_id: groupData.id,
@@ -162,12 +178,21 @@ export default function AdminPage() {
         created_by: userId,
       })
 
+    if (inviteError) {
+      console.error('Invite creation error:', inviteError)
+      // Non-fatal, continue
+    } else {
+      console.log('Invite code created:', inviteCode)
+    }
+
     // Reset form and reload
     setGroupName('')
     setGroupType('synagogue')
     setInstitution('')
     setShowCreateForm(false)
     setCreating(false)
+
+    console.log('Group creation complete, reloading...')
 
     // Reload the groups list
     setLoading(true)
@@ -186,22 +211,35 @@ export default function AdminPage() {
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700"
-          >
-            Create Group
-          </button>
-          {groups.length > 0 && (
-            <Link
-              href="/admin/quizzes"
-              className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
-            >
-              Manage Quizzes
-            </Link>
-          )}
-        </div>
+        <button
+          onClick={() => setShowCreateForm(true)}
+          className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700"
+        >
+          Create Group
+        </button>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Link
+          href="/admin/quizzes"
+          className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow border-l-4 border-blue-500"
+        >
+          <h2 className="text-lg font-semibold text-gray-900">Quizzes</h2>
+          <p className="text-sm text-gray-500 mt-1">Create new quizzes or manage existing ones</p>
+        </Link>
+        <Link
+          href="/leaderboard"
+          className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow border-l-4 border-green-500"
+        >
+          <h2 className="text-lg font-semibold text-gray-900">Leaderboard</h2>
+          <p className="text-sm text-gray-500 mt-1">View student rankings and progress</p>
+        </Link>
+      </div>
+
+      {/* Groups Section Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-gray-900">My Groups</h2>
       </div>
 
       {/* Create Group Form */}

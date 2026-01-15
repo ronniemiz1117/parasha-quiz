@@ -50,6 +50,17 @@ interface Quiz {
   }
 }
 
+interface Group {
+  id: number
+  name: string
+}
+
+interface QuizAssignment {
+  id: number
+  group_id: number
+  groups?: Group
+}
+
 interface EditQuizPageProps {
   params: Promise<{ id: string }>
 }
@@ -62,6 +73,11 @@ export default function EditQuizPage({ params }: EditQuizPageProps) {
   const [aliyot, setAliyot] = useState<Aliyah[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+
+  // Groups and assignments
+  const [userGroups, setUserGroups] = useState<Group[]>([])
+  const [assignments, setAssignments] = useState<QuizAssignment[]>([])
+  const [selectedGroupId, setSelectedGroupId] = useState('')
 
   // Edit quiz form
   const [editingQuiz, setEditingQuiz] = useState(false)
@@ -153,6 +169,29 @@ export default function EditQuizPage({ params }: EditQuizPageProps) {
       .order('sort_order', { ascending: true })
 
     setQuestions(questionsData || [])
+
+    // Get user's groups (where they are admin/teacher)
+    const { data: memberships } = await supabase
+      .from('group_memberships')
+      .select('group_id, groups(id, name)')
+      .eq('user_id', user.id)
+      .in('role', ['admin', 'teacher'])
+      .eq('is_active', true)
+
+    const groups = memberships
+      ?.map(m => m.groups as Group | null)
+      .filter((g): g is Group => g !== null) || []
+    setUserGroups(groups)
+
+    // Get current quiz assignments
+    const { data: assignmentsData } = await supabase
+      .from('quiz_group_assignments')
+      .select('id, group_id, groups(id, name)')
+      .eq('quiz_id', parseInt(id))
+      .eq('is_active', true)
+
+    setAssignments(assignmentsData || [])
+
     setLoading(false)
   }
 
@@ -291,6 +330,97 @@ export default function EditQuizPage({ params }: EditQuizPageProps) {
     setNewChoices(updated)
   }
 
+  const handleAssignToGroupById = async (groupId: number) => {
+    if (!quiz) return
+    setSaving(true)
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      setSaving(false)
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('quiz_group_assignments')
+      .insert({
+        quiz_id: quiz.id,
+        group_id: groupId,
+        assigned_by: user.id,
+      })
+      .select('id, group_id, groups(id, name)')
+      .single()
+
+    if (!error && data) {
+      setAssignments([...assignments, data])
+    }
+
+    setSaving(false)
+  }
+
+  const handleAssignToGroup = async () => {
+    if (!quiz || !selectedGroupId) return
+    setSaving(true)
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return
+
+    const { data, error } = await supabase
+      .from('quiz_group_assignments')
+      .insert({
+        quiz_id: quiz.id,
+        group_id: parseInt(selectedGroupId),
+        assigned_by: user.id,
+      })
+      .select('id, group_id, groups(id, name)')
+      .single()
+
+    if (!error && data) {
+      setAssignments([...assignments, data])
+      setSelectedGroupId('')
+    }
+
+    setSaving(false)
+  }
+
+  const handleRemoveAssignment = async (assignmentId: number) => {
+    setSaving(true)
+    const supabase = createClient()
+
+    const { error } = await supabase
+      .from('quiz_group_assignments')
+      .delete()
+      .eq('id', assignmentId)
+
+    if (!error) {
+      setAssignments(assignments.filter(a => a.id !== assignmentId))
+    }
+    setSaving(false)
+  }
+
+  const handleTogglePublish = async () => {
+    if (!quiz) return
+    setSaving(true)
+
+    const supabase = createClient()
+
+    const newPublishState = !quiz.is_published
+
+    const { error } = await supabase
+      .from('quizzes')
+      .update({ is_published: newPublishState, updated_at: new Date().toISOString() })
+      .eq('id', quiz.id)
+
+    if (!error) {
+      setQuiz({ ...quiz, is_published: newPublishState })
+    }
+
+    setSaving(false)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -418,6 +548,95 @@ export default function EditQuizPage({ params }: EditQuizPageProps) {
             <p>Max Attempts: {quiz.max_attempts}</p>
             <p>Time Limit: {quiz.time_limit_seconds ? `${quiz.time_limit_seconds / 60} minutes` : 'None'}</p>
           </div>
+        )}
+
+        {/* Publish/Unpublish button */}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <button
+            onClick={handleTogglePublish}
+            disabled={saving}
+            className={`px-4 py-2 rounded-md text-sm font-medium ${
+              quiz.is_published
+                ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                : 'bg-green-600 text-white hover:bg-green-700'
+            } disabled:opacity-50`}
+          >
+            {quiz.is_published ? 'Unpublish Quiz' : 'Publish Quiz'}
+          </button>
+          {!quiz.is_published && (
+            <p className="text-xs text-gray-500 mt-1">
+              Students can only see published quizzes
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Group Assignments Section */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Assign to Groups</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Students will only see this quiz if it's assigned to their group and published.
+          Select which groups should have access to this quiz.
+        </p>
+
+        {userGroups.length > 0 ? (
+          <div className="space-y-2">
+            {userGroups.map((group) => {
+              const isAssigned = assignments.some(a => a.group_id === group.id)
+              const assignment = assignments.find(a => a.group_id === group.id)
+              return (
+                <label
+                  key={group.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    isAssigned
+                      ? 'bg-blue-50 border-blue-200'
+                      : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                  } ${saving ? 'opacity-50 pointer-events-none' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isAssigned}
+                    disabled={saving}
+                    onChange={() => {
+                      if (isAssigned && assignment) {
+                        handleRemoveAssignment(assignment.id)
+                      } else {
+                        handleAssignToGroupById(group.id)
+                      }
+                    }}
+                    className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                  />
+                  <span className={`font-medium ${isAssigned ? 'text-blue-800' : 'text-gray-700'}`}>
+                    {group.name}
+                  </span>
+                  {isAssigned && (
+                    <span className="ml-auto text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                      Assigned
+                    </span>
+                  )}
+                </label>
+              )
+            })}
+
+            {assignments.length === 0 && (
+              <p className="text-sm text-amber-600 mt-2">
+                This quiz is not assigned to any groups yet. Students won't be able to see it.
+              </p>
+            )}
+
+            {userGroups.length > 0 && userGroups.length === assignments.length && (
+              <p className="text-sm text-green-600 mt-2">
+                This quiz is assigned to all your groups!
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">
+            You need to create a group first before you can assign quizzes.{' '}
+            <Link href="/admin" className="text-blue-600 hover:text-blue-700">
+              Go to Admin Dashboard
+            </Link>
+          </p>
         )}
       </div>
 

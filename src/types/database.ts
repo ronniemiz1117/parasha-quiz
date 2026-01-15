@@ -224,6 +224,38 @@ export interface Database {
           used_at?: string
         }
       }
+      quiz_group_assignments: {
+        Row: {
+          id: number
+          quiz_id: number
+          group_id: number
+          assigned_by: string
+          assigned_at: string
+          is_active: boolean
+          available_from: string | null
+          available_until: string | null
+        }
+        Insert: {
+          id?: number
+          quiz_id: number
+          group_id: number
+          assigned_by: string
+          assigned_at?: string
+          is_active?: boolean
+          available_from?: string | null
+          available_until?: string | null
+        }
+        Update: {
+          id?: number
+          quiz_id?: number
+          group_id?: number
+          assigned_by?: string
+          assigned_at?: string
+          is_active?: boolean
+          available_from?: string | null
+          available_until?: string | null
+        }
+      }
       quizzes: {
         Row: {
           id: number

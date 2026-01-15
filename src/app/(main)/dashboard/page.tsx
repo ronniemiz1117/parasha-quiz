@@ -11,6 +11,25 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
+  // Redirect admins to admin dashboard
+  if (user.user_metadata?.signup_type === 'admin') {
+    redirect('/admin')
+  }
+
+  // Check if user is teacher/admin of any group - also redirect them
+  const { data: adminMembership } = await supabase
+    .from('group_memberships')
+    .select('role')
+    .eq('user_id', user.id)
+    .in('role', ['admin', 'teacher'])
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle()
+
+  if (adminMembership) {
+    redirect('/admin')
+  }
+
   // Fetch profile with stats
   const { data: profile } = await supabase
     .from('profiles')
@@ -48,7 +67,7 @@ export default async function DashboardPage() {
       {/* Welcome Section */}
       <div className="bg-white rounded-lg shadow p-6">
         <h1 className="text-2xl font-bold text-gray-900">
-          Welcome, {profile?.display_name || profile?.hebrew_name}!
+          Welcome{profile?.display_name || profile?.hebrew_name ? `, ${profile?.display_name || profile?.hebrew_name}` : ''}!
         </h1>
         <p className="mt-2 text-gray-600">
           Welcome to the Parasha Quiz
